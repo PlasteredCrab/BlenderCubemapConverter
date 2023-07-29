@@ -18,7 +18,6 @@ import bpy
 import os
 import sys
 import shutil
-import scipy
 import numpy as np
 
 class CubemapPreferences(bpy.types.AddonPreferences):
