@@ -100,6 +100,8 @@ class InstallPy360ConvertOperator(bpy.types.Operator):
 
         preferences = context.preferences.addons[__name__].preferences
         py360convert_path = preferences.library_path
+        scipy_path = py360convert_path.replace("py360convert", "scipy")
+
 
         python_executable_path = sys.executable
         site_packages_path = os.path.join(os.path.dirname(python_executable_path), 'lib', 'site-packages')
@@ -109,12 +111,24 @@ class InstallPy360ConvertOperator(bpy.types.Operator):
             site_packages_path = site_packages_path.replace('bin\\lib', 'lib')
 
         py360convert_dest_path = os.path.join(site_packages_path, 'py360convert')
+        scipy_dest_path = os.path.join(site_packages_path, 'scipy')
 
         if os.path.exists(py360convert_dest_path):
             self.report({'INFO'}, "Py360convert is already installed!")
         else:
+            #copy py360convert libraries to needed destination
             shutil.copytree(py360convert_path, py360convert_dest_path)
+ 
             self.report({'INFO'}, "Py360convert installed successfully")
+        
+        if os.path.exists(scipy_dest_path):
+            self.report({'INFO'}, "Scipy is already installed!")
+        else:
+            #copy scipy libraries to needed destination
+            shutil.copytree(scipy_path, scipy_dest_path)
+
+            self.report({'INFO'}, "scipy installed successfully")
+        
 
         return {'FINISHED'}
 
