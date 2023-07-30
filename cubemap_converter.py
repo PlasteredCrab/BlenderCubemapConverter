@@ -45,33 +45,53 @@ def convert_cubemap_to_equirectangular(cubemap_image_path):
     cubemap_image = bpy.data.images.load(cubemap_image_path)
     cubemap_np = np.array(cubemap_image.pixels[:]).reshape((cubemap_image.size[1], cubemap_image.size[0], 4))  # reshape to 2D array with RGBA channels
 
+    # Separate the alpha channel into an additional cubemap image
+    alpha_cubemap_np = np.zeros_like(cubemap_np)  # Create a new cubemap with the same shape as the original
+    alpha_cubemap_np[:, :, :3] = cubemap_np[:, :, 3, np.newaxis]  # Copy the alpha channel to the RGB channels
+    alpha_cubemap_np[:, :, 3] = 1  # Set alpha channel to fully opaque
+    rgb_cubemap_np = cubemap_np.copy()  # Copy the original cubemap
+    rgb_cubemap_np[:, :, 3] = 1  # Set alpha channel to fully opaque
+
     # Get the resolution of the input image
-    height, width, _ = cubemap_np.shape
+    height, width, _ = rgb_cubemap_np.shape
     equirectangular_width = int(width * 1.5)
     equirectangular_height = height
 
     try:
-        # Convert the cubemap to an equirectangular image
-        equirectangular_np = py360convert.c2e(cubemap_np, h=equirectangular_height, w=equirectangular_width, cube_format='dice')
+        # Convert the RGB cubemap to an equirectangular image
+        rgb_equirectangular_np = py360convert.c2e(rgb_cubemap_np, h=equirectangular_height, w=equirectangular_width, cube_format='dice')
+        # Convert the Alpha cubemap to an equirectangular image
+        alpha_equirectangular_np = py360convert.c2e(alpha_cubemap_np, h=equirectangular_height, w=equirectangular_width, cube_format='dice')
 
-        # Create a new image and assign the pixels
-        equirectangular_image = bpy.data.images.new("Equirectangular Image", width=equirectangular_width, height=equirectangular_height)
-        equirectangular_image.pixels = equirectangular_np.flatten().tolist()
+        # Create new images and assign the pixels
+        rgb_equirectangular_image = bpy.data.images.new("RGB Equirectangular Image", width=equirectangular_width, height=equirectangular_height)
+        alpha_equirectangular_image = bpy.data.images.new("Alpha Equirectangular Image", width=equirectangular_width, height=equirectangular_height)
+        rgb_equirectangular_image.pixels = rgb_equirectangular_np.flatten().tolist()
+        alpha_equirectangular_image.pixels = alpha_equirectangular_np.flatten().tolist()
 
-        # Save the equirectangular image
+        # Save the equirectangular images
         dir_name = os.path.dirname(cubemap_image_path)
         base_name = os.path.basename(cubemap_image_path)
         file_name, ext = os.path.splitext(base_name)
-        new_file_name = f"{file_name}_equirectangular{ext}"
-        equirectangular_image_path = os.path.join(dir_name, new_file_name)
-        equirectangular_image.filepath_raw = equirectangular_image_path
-        equirectangular_image.file_format = 'PNG'
-        equirectangular_image.save()
+        rgb_file_name = f"{file_name}_rgb_equirectangular{ext}"
+        alpha_file_name = f"{file_name}_alpha_equirectangular{ext}"
+        rgb_equirectangular_image_path = os.path.join(dir_name, rgb_file_name)
+        alpha_equirectangular_image_path = os.path.join(dir_name, alpha_file_name)
+        rgb_equirectangular_image.filepath_raw = rgb_equirectangular_image_path
+        alpha_equirectangular_image.filepath_raw = alpha_equirectangular_image_path
+        rgb_equirectangular_image.file_format = 'PNG'
+        alpha_equirectangular_image.file_format = 'PNG'
+        rgb_equirectangular_image.save()
+        alpha_equirectangular_image.save()
 
-        print(f"Saving equirectangular image to: {equirectangular_image_path}")
+        print(f"Saving RGB equirectangular image to: {rgb_equirectangular_image_path}")
+        print(f"Saving Alpha equirectangular image to: {alpha_equirectangular_image_path}")
 
     except Exception as e:
         print(f"Error converting {cubemap_image_path}: {e}")
+
+
+
 
 
 
@@ -234,3 +254,9 @@ def unregister():
 
 if __name__ == "__main__":
     register()
+
+
+#### TODO LATER
+#  ADD Reverse Support  EQUIRECTANGULAR MAP --> Cubemap  (Combine the alpha channels if there are any)
+    # HDRI support -  Find a way to extract light data from HDRIs to get correct gamma values into the alpha channel of the created Cubemap
+    
