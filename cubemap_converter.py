@@ -35,31 +35,44 @@ class CubemapPreferences(bpy.types.AddonPreferences):
 def convert_cubemap_to_equirectangular(cubemap_image_path):
     import py360convert
     import scipy
-    
+
+    # Skip files that have "equirectangular" in the file name
+    if "equirectangular" in cubemap_image_path:
+        print(f"Skipping {cubemap_image_path}")
+        return
+
     # Load the cubemap image
     cubemap_image = bpy.data.images.load(cubemap_image_path)
     cubemap_np = np.array(cubemap_image.pixels[:]).reshape((cubemap_image.size[1], cubemap_image.size[0], 4))  # reshape to 2D array with RGBA channels
 
-    # Convert the cubemap to an equirectangular image
-    equirectangular_np = py360convert.c2e(cubemap_np, h=800, w=1600, cube_format='dice')
+    # Get the resolution of the input image
+    height, width, _ = cubemap_np.shape
+    equirectangular_width = int(width * 1.5)
+    equirectangular_height = height
 
-    # Create a new image and assign the pixels
-    equirectangular_image = bpy.data.images.new("Equirectangular Image", width=1600, height=800)
-    equirectangular_image.pixels = equirectangular_np.flatten().tolist()
+    try:
+        # Convert the cubemap to an equirectangular image
+        equirectangular_np = py360convert.c2e(cubemap_np, h=equirectangular_height, w=equirectangular_width, cube_format='dice')
 
-    # Save the equirectangular image
-    dir_name = os.path.dirname(cubemap_image_path)
-    base_name = os.path.basename(cubemap_image_path)
-    file_name, ext = os.path.splitext(base_name)
-    new_file_name = f"{file_name}_equirectangular{ext}"
-    equirectangular_image_path = os.path.join(dir_name, new_file_name)
-    equirectangular_image.filepath_raw = equirectangular_image_path
-    equirectangular_image.file_format = 'PNG'
-    equirectangular_image.save()
+        # Create a new image and assign the pixels
+        equirectangular_image = bpy.data.images.new("Equirectangular Image", width=equirectangular_width, height=equirectangular_height)
+        equirectangular_image.pixels = equirectangular_np.flatten().tolist()
 
-    print(f"Saving equirectangular image to: {equirectangular_image_path}")
+        # Save the equirectangular image
+        dir_name = os.path.dirname(cubemap_image_path)
+        base_name = os.path.basename(cubemap_image_path)
+        file_name, ext = os.path.splitext(base_name)
+        new_file_name = f"{file_name}_equirectangular{ext}"
+        equirectangular_image_path = os.path.join(dir_name, new_file_name)
+        equirectangular_image.filepath_raw = equirectangular_image_path
+        equirectangular_image.file_format = 'PNG'
+        equirectangular_image.save()
 
-    #return equirectangular_image_path
+        print(f"Saving equirectangular image to: {equirectangular_image_path}")
+
+    except Exception as e:
+        print(f"Error converting {cubemap_image_path}: {e}")
+
 
 
 
