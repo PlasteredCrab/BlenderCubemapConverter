@@ -9,3 +9,6 @@ Note: Blender must be ran as administrator to install py360convert library using
 
 # Video tutorial:
 https://youtu.be/dpMQr59vSys
+
+# Changes Added
+- Checkbox for Separating Alpha into additonal RGB image in case you want it as a different image
