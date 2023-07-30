@@ -35,6 +35,7 @@ class CubemapPreferences(bpy.types.AddonPreferences):
 		
 def convert_cubemap_to_equirectangular(cubemap_image_path):
     import py360convert
+    import scipy
     
     # Load the cubemap image
     cubemap_image = bpy.data.images.load(cubemap_image_path)
@@ -74,9 +75,9 @@ class InstallPy360ConvertOperator(bpy.types.Operator):
     def execute(self, context):
         import numpy
         import subprocess
-    
-        # Check numpy version
         
+        # Check numpy version
+        #scipy_version = scipy__version__
         numpy_version = numpy.__version__
         print("numpy version:", numpy_version)
         if numpy_version >= '1.24.0':
@@ -84,6 +85,19 @@ class InstallPy360ConvertOperator(bpy.types.Operator):
             subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "numpy"])
             # Install specific numpy version
             subprocess.check_call([sys.executable, "-m", "pip", "install", "numpy==1.22.0"])
+
+        # if not (scipy_version):
+            # # Uninstall numpy
+            # subprocess.check_call([sys.executable, "-m", "pip", "uninstall", "-y", "scipy"])
+
+        try:
+            import scipy
+            print("scipy version:", scipy.__version__)
+        except ImportError:
+            print("scipy is not installed. Installing now...")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", "scipy"])
+
+
 
         preferences = context.preferences.addons[__name__].preferences
         py360convert_path = preferences.library_path
