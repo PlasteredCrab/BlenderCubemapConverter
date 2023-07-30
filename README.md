@@ -11,4 +11,4 @@ Note: Blender must be ran as administrator to install py360convert library using
 https://youtu.be/dpMQr59vSys
 
 # Changes Added
-- Checkbox for Separating Alpha into additonal RGB image in case you want it as a different image
+- Checkbox for Separating Alpha into additonal RGB image in case you want it as a different RGB image (used in my current Halo projects)
