@@ -8,15 +8,10 @@ https://github.com/sunset1995/py360convert
 You do not need to manually install py360convert anymore like the video below suggets. Just install and play.
 When enabling the addon for the first time it will automatically download scipy and numpy dependencies, this may take a minute or two.
 
-
-# Modifications by R60D
-Removing py360 installation step
-Removing hardcoded dependency folders
-
-
-
 # Video tutorial:
 https://youtu.be/dpMQr59vSys
 
 # Changes Added
 - Checkbox for Separating Alpha into additonal RGB image in case you want it as a different RGB image (used in my current Halo projects)
+- Removed manual py360 installation process
+
