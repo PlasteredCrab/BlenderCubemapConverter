@@ -14,4 +14,5 @@ https://youtu.be/dpMQr59vSys
 # Changes Added
 - Checkbox for Separating Alpha into additonal RGB image in case you want it as a different RGB image (used in my current Halo projects)
 - Removed manual py360 installation process
-
+- Supports most image formats now including HDR
+- Convert between Cubemap <=> equirectangular
