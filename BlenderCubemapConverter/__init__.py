@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
     "author": "Plastered_Crab and Ultikynnys (and the py360convert GitHub)",
-    "version": (1, 6, 0),
+    "version": (1, 6, 2),
     "blender": (4, 2, 0),
     "location": "View3D > UI",
     "description": "Converts between cubemap images and equirectangular maps",
@@ -59,8 +59,16 @@ def install_package(package):
         print(f"Failed to import {package} after installation. Error: {e}")
         print(f"sys.path: {sys.path}")
 
-install_package('numpy')
-install_package('scipy')
+try:#Skip if it exists
+    import numpy
+except:
+    install_package('numpy')
+
+try:#Skip if it exists
+    import scipy
+except:
+    install_package('scipy')
+
 
 import bpy
 import numpy as np
