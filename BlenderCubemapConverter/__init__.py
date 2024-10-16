@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
-    "author": "Plastered_Crab (and the py360convert GitHub) FIXED BY R60D",
-    "version": (1, 5,2),
+    "author": "Plastered_Crab and Ultikynnys (and the py360convert GitHub)",
+    "version": (1, 5, 3),
     "blender": (3, 3, 0),
     "location": "View3D > UI",
     "description": "Converts cubemap images to equirectangular maps",
