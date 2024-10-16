@@ -21,9 +21,6 @@ def c2e(cubemap, h, w, mode='bilinear', cube_format='dice'):
         cubemap = utils.cube_dice2h(cubemap)
     else:
         raise NotImplementedError('unknown cube_format')
-    assert len(cubemap.shape) == 3
-    assert cubemap.shape[0] * 6 == cubemap.shape[1]
-    assert w % 8 == 0
     face_w = cubemap.shape[0]
 
     uv = utils.equirect_uvgrid(h, w)
