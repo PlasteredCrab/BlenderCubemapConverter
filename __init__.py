@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
     "author": "Plastered_Crab (and the py360convert GitHub) FIXED BY R60D",
-    "version": (1, 5),
+    "version": (1, 6),
     "blender": (3, 3, 0),
     "location": "View3D > UI",
     "description": "Converts cubemap images to equirectangular maps",
@@ -16,18 +16,21 @@ bl_info = {
 
 import sys
 import subprocess
+try:
+    import scipy
 
-def install_package(package):
-    try:
-        __import__(package)
-        print(f"{package} is already installed.")
-    except:
-        print(f"{package} is not installed. Installing...")
+except:
         subprocess.run([sys.executable, '-m', 'ensurepip'])
-        subprocess.run([sys.executable, '-m', 'pip', 'install', package])
+        subprocess.run([sys.executable, '-m', 'pip', 'install', 'scipy'])
 
-install_package('scipy')
-install_package('numpy')
+
+try:
+    import numpy
+
+except:
+        subprocess.run([sys.executable, '-m', 'ensurepip'])
+        subprocess.run([sys.executable, '-m', 'pip', 'install', 'numpy'])
+
 import bpy
 import os
 import numpy as np
