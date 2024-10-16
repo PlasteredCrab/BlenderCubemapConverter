@@ -6,6 +6,11 @@ https://github.com/sunset1995/py360convert
 
 Note: Blender must be ran as administrator to install py360convert library using the panel
 
+# Modifications by R60D
+Removing py360 installation step
+Removing hardcoded dependency folders
+
+
 
 # Video tutorial:
 https://youtu.be/dpMQr59vSys
