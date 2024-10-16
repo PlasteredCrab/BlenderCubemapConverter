@@ -9,6 +9,11 @@ You do not need to manually install py360convert anymore like the video below su
 When enabling the addon for the first time it will automatically download scipy and numpy dependencies, this may take a minute or two.
 
 
+# Modifications by R60D
+Removing py360 installation step
+Removing hardcoded dependency folders
+
+
 
 # Video tutorial:
 https://youtu.be/dpMQr59vSys
