@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
     "author": "Plastered_Crab and Ultikynnys (and the py360convert GitHub)",
-    "version": (1, 6, 5),
+    "version": (1, 6, 6),
     "blender": (4, 2, 0),
     "location": "View3D > UI",
     "description": "Converts between cubemap images and equirectangular maps",
@@ -14,6 +14,14 @@ import sys
 import subprocess
 import importlib
 import os
+
+def ExternalModuleInit():#Ensure that initial checks module checks dont fail
+    # Create a directory under the user's home directory
+    user_home = os.path.expanduser('~')
+    target_dir = os.path.join(user_home, 'blender_python_libs')
+    os.makedirs(target_dir, exist_ok=True)
+    if target_dir not in sys.path:
+        sys.path.insert(0, target_dir)
 
 def install_package(package):
     print(f"Attempting to import {package}...")
@@ -58,6 +66,9 @@ def install_package(package):
     except ImportError as e:
         print(f"Failed to import {package} after installation. Error: {e}")
         print(f"sys.path: {sys.path}")
+
+
+ExternalModuleInit()#Load sys path
 
 try:#Skip if it exists
     import numpy
