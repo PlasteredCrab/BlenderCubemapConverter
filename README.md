@@ -4,7 +4,10 @@ Blender Addon for Converting cubemaps using py360converter library
 Huge credit to Py360Convert GitHub page for the libraries needed for this to work with python:
 https://github.com/sunset1995/py360convert
 
-Note: Blender must be ran as administrator to install py360convert library using the panel
+# Note 
+You do not need to manually install py360convert anymore like the video below suggets. Just install and play.
+When enabling the addon for the first time it will automatically download scipy and numpy dependencies, this may take a minute or two.
+
 
 
 # Video tutorial:
