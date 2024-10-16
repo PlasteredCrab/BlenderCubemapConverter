@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
     "author": "Plastered_Crab (and the py360convert GitHub) FIXED BY R60D",
-    "version": (1, 6),
+    "version": (1, 5,2),
     "blender": (3, 3, 0),
     "location": "View3D > UI",
     "description": "Converts cubemap images to equirectangular maps",
@@ -13,24 +13,40 @@ bl_info = {
 
 #  NOTE  # RUN AS ADMINISTRATOR
 
-
 import sys
 import subprocess
-try:
-    import scipy
+import site
+import os
 
-except:
-        subprocess.run([sys.executable, '-m', 'ensurepip'])
-        subprocess.run([sys.executable, '-m', 'pip', 'install', 'scipy'])
+def add_user_site_packages():
+    user_site = site.getusersitepackages()
+    if user_site not in sys.path:
+        sys.path.append(user_site)
+        print(f"Added {user_site} to sys.path")
 
+def install_package(package):
+    try:
+        __import__(package)
+        print(f"{package} is already installed.")
+    except ImportError:
+        print(f"{package} is not installed. Installing...")
+        subprocess.run([sys.executable, '-m', 'ensurepip', '--user'])
+        subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', package])
+        # Try importing again after installation
+        try:
+            __import__(package)
+        except ImportError:
+            print(f"Failed to install {package}. Please check your environment.")
 
-try:
-    import numpy
+# Add user site-packages directory to sys.path
+add_user_site_packages()
 
-except:
-        subprocess.run([sys.executable, '-m', 'ensurepip'])
-        subprocess.run([sys.executable, '-m', 'pip', 'install', 'numpy'])
+# Install the packages
+install_package('scipy')
+install_package('numpy')
 
+install_package('scipy')
+install_package('numpy')
 import bpy
 import os
 import numpy as np
