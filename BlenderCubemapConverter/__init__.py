@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
     "author": "Plastered_Crab and Ultikynnys (and the py360convert GitHub)",
-    "version": (1, 5, 3),
+    "version": (1, 5, 4),
     "blender": (3, 3, 0),
     "location": "View3D > UI",
     "description": "Converts cubemap images to equirectangular maps",
@@ -15,40 +15,58 @@ bl_info = {
 
 import sys
 import subprocess
-import site
+import importlib
 import os
-
-def add_user_site_packages():
-    user_site = site.getusersitepackages()
-    if user_site not in sys.path:
-        sys.path.append(user_site)
-        print(f"Added {user_site} to sys.path")
 
 def install_package(package):
+    print(f"Attempting to import {package}...")
     try:
-        __import__(package)
+        importlib.import_module(package)
         print(f"{package} is already installed.")
-    except ImportError:
-        print(f"{package} is not installed. Installing...")
-        subprocess.run([sys.executable, '-m', 'ensurepip', '--user'])
-        subprocess.run([sys.executable, '-m', 'pip', 'install', '--user', package])
-        # Try importing again after installation
-        try:
-            __import__(package)
-        except ImportError:
-            print(f"Failed to install {package}. Please check your environment.")
+        return
+    except ImportError as e:
+        print(f"{package} is not installed: {e}")
 
-# Add user site-packages directory to sys.path
-add_user_site_packages()
+    print(f"Installing {package} into a user directory...")
+    python_executable = sys.executable
 
-# Install the packages
-install_package('scipy')
+    # Create a directory under the user's home directory
+    user_home = os.path.expanduser('~')
+    target_dir = os.path.join(user_home, 'blender_python_libs')
+    os.makedirs(target_dir, exist_ok=True)
+
+    # Install the package into target_dir without dependencies
+    try:
+        subprocess.check_call([
+            python_executable,
+            '-m', 'pip',
+            'install',
+            package,
+            '--no-deps',
+            '--target', target_dir
+        ])
+    except subprocess.CalledProcessError as e:
+        print(f"Error installing {package}: {e}")
+        return
+
+    # Add target_dir to sys.path if not already present
+    if target_dir not in sys.path:
+        sys.path.insert(0, target_dir)
+        print(f"Added {target_dir} to sys.path")
+
+    print(f"Re-attempting to import {package} after installation...")
+    try:
+        importlib.import_module(package)
+        print(f"{package} installed and imported successfully.")
+    except ImportError as e:
+        print(f"Failed to import {package} after installation. Error: {e}")
+        print(f"sys.path: {sys.path}")
+
+
 install_package('numpy')
-
 install_package('scipy')
-install_package('numpy')
+
 import bpy
-import os
 import numpy as np
 from . import py360convert
 
