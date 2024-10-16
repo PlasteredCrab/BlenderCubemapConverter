@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cubemap Converter Addon",
     "author": "Plastered_Crab and Ultikynnys (and the py360convert GitHub)",
-    "version": (1, 6, 2),
+    "version": (1, 6, 5),
     "blender": (4, 2, 0),
     "location": "View3D > UI",
     "description": "Converts between cubemap images and equirectangular maps",
@@ -72,15 +72,30 @@ except:
 
 import bpy
 import numpy as np
-import py360convert
+from . import py360convert
+
+
+def srgb_to_linear(srgb):
+    """Convert sRGB values to linear RGB."""
+    linear = np.where(
+        srgb <= 0.04045,
+        srgb / 12.92,
+        ((srgb + 0.055) / 1.055) ** 2.4
+    )
+    return linear
+
+def linear_to_srgb(linear):
+    """Convert linear RGB values to sRGB."""
+    srgb = np.where(
+        linear <= 0.0031308,
+        linear * 12.92,
+        1.055 * (linear ** (1/2.4)) - 0.055
+    )
+    return srgb
 
 def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alpha_channel):
     print(f"Processing equirectangular image: {equirectangular_image_path}")
     try:
-        # Skip files that have "cubemap" in the file name (case-insensitive)
-        if "cubemap" in equirectangular_image_path.lower():
-            print(f"Skipping {equirectangular_image_path}")
-            return
 
         # Load the equirectangular image
         try:
@@ -91,8 +106,23 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
 
         print("Image loaded successfully.")
 
-        equirect_image.use_half_precision = True  # For HDRI support
-        equirect_image.colorspace_settings.name = 'Non-Color'  # Set color space to Non-Color
+        # Determine the image color space and format based on file extension
+        ext = os.path.splitext(equirectangular_image_path)[1].lower()
+        if ext in ['.exr', '.hdr']:
+            is_linear = True
+            output_format = 'OPEN_EXR'
+            equirect_image.colorspace_settings.name = 'Non-Color'
+        elif ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
+            is_linear = False
+            output_format = ext.replace('.', '').upper()
+            if output_format == 'JPG':
+                output_format = 'JPEG'
+            elif output_format == 'TIF':
+                output_format = 'TIFF'
+            equirect_image.colorspace_settings.name = 'Non-Color'  # Load without color management
+        else:
+            print(f"Unsupported input image format: {ext}")
+            return
 
         width, height = equirect_image.size
         channels = len(equirect_image.pixels) // (width * height)
@@ -103,13 +133,18 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
         equirect_pixels = np.array(equirect_image.pixels[:]).reshape((height, width, channels)).astype(np.float32)
         equirect_pixels = equirect_pixels[:, :, :4]  # Ensure RGBA
 
+        # Convert sRGB to linear if necessary
+        if not is_linear:
+            print("Converting from sRGB to linear color space.")
+            equirect_pixels[:, :, :3] = srgb_to_linear(equirect_pixels[:, :, :3])
+
         # Separate alpha channel if needed
         if channels == 4:
             alpha_equirect = equirect_pixels[:, :, 3]
             rgb_equirect = equirect_pixels[:, :, :3]
         else:
             alpha_equirect = np.ones((height, width), dtype=np.float32)
-            rgb_equirect = equirect_pixels
+            rgb_equirect = equirect_pixels[:, :, :3]
 
         # Determine face width based on the width of the equirectangular image
         face_w = width // 4
@@ -121,8 +156,25 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
         alpha_equirect_expanded = np.stack([alpha_equirect]*3, axis=-1)
         cube_alpha = py360convert.e2c(alpha_equirect_expanded, face_w=face_w, cube_format='dice')[:, :, 0]
 
+        # Convert linear to sRGB if saving in sRGB format
+        if not is_linear:
+            print("Converting from linear to sRGB color space for output.")
+            cube_rgb = linear_to_srgb(cube_rgb)
+
+        # Clamp values between 0 and 1 for 8-bit formats
+        if output_format in ['PNG', 'JPEG', 'TIFF', 'BMP']:
+            cube_rgb = np.clip(cube_rgb, 0.0, 1.0)
+
         # Get dimensions from cube_rgb
         height_c, width_c, _ = cube_rgb.shape
+
+        # Determine float_buffer and use_half_precision settings
+        if output_format == 'OPEN_EXR':
+            float_buffer = True
+            use_half_precision = True
+        else:
+            float_buffer = False
+            use_half_precision = False
 
         if separate_alpha_channel:
             # Create RGB cubemap image with alpha channel set to 1
@@ -131,11 +183,11 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
                 width=width_c,
                 height=height_c,
                 alpha=True,
-                float_buffer=True
+                float_buffer=float_buffer
             )
-            cube_rgb_image.use_half_precision = True
-            cube_rgb_image.file_format = 'OPEN_EXR'
-            cube_rgb_image.colorspace_settings.name = 'Non-Color'
+            cube_rgb_image.use_half_precision = use_half_precision
+            cube_rgb_image.file_format = output_format
+            cube_rgb_image.colorspace_settings.name = 'sRGB' if not is_linear else 'Non-Color'
 
             # Combine RGB channels with alpha channel set to 1
             cube_rgb_alpha = np.dstack((cube_rgb, np.ones_like(cube_alpha)))
@@ -146,8 +198,8 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
             # Save the RGB cubemap image
             dir_name = os.path.dirname(equirectangular_image_path)
             base_name = os.path.basename(equirectangular_image_path)
-            file_name, ext = os.path.splitext(base_name)
-            cube_rgb_file_name = f"{file_name}_cubemap_rgb.exr"
+            file_name, _ = os.path.splitext(base_name)
+            cube_rgb_file_name = f"{file_name}_cubemap_rgb{ext}"
             cube_rgb_image_path = os.path.join(dir_name, cube_rgb_file_name)
             cube_rgb_image.filepath_raw = cube_rgb_image_path
             cube_rgb_image.save()
@@ -160,11 +212,11 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
                 width=width_c,
                 height=height_c,
                 alpha=True,
-                float_buffer=True
+                float_buffer=float_buffer
             )
-            cube_alpha_image.use_half_precision = True
-            cube_alpha_image.file_format = 'OPEN_EXR'
-            cube_alpha_image.colorspace_settings.name = 'Non-Color'
+            cube_alpha_image.use_half_precision = use_half_precision
+            cube_alpha_image.file_format = output_format
+            cube_alpha_image.colorspace_settings.name = 'Non-Color'  # Alpha is linear
 
             # Replace RGB channels with alpha data, set alpha channel to 1
             cube_alpha_rgb = np.dstack((cube_alpha, cube_alpha, cube_alpha, np.ones_like(cube_alpha)))
@@ -173,7 +225,7 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
             cube_alpha_image.pixels = cube_alpha_rgb.flatten().tolist()
 
             # Save the Alpha cubemap image
-            cube_alpha_file_name = f"{file_name}_cubemap_alpha.exr"
+            cube_alpha_file_name = f"{file_name}_cubemap_alpha{ext}"
             cube_alpha_image_path = os.path.join(dir_name, cube_alpha_file_name)
             cube_alpha_image.filepath_raw = cube_alpha_image_path
             cube_alpha_image.save()
@@ -190,11 +242,11 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
                 width=width_c,
                 height=height_c,
                 alpha=True,
-                float_buffer=True
+                float_buffer=float_buffer
             )
-            cubemap_image.use_half_precision = True  # For HDRI support
-            cubemap_image.file_format = 'OPEN_EXR'
-            cubemap_image.colorspace_settings.name = 'Non-Color'
+            cubemap_image.use_half_precision = use_half_precision
+            cubemap_image.file_format = output_format
+            cubemap_image.colorspace_settings.name = 'sRGB' if not is_linear else 'Non-Color'
 
             # Flatten and assign pixels
             cubemap_image.pixels = cube_rgba.flatten().tolist()
@@ -202,8 +254,8 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
             # Save the image
             dir_name = os.path.dirname(equirectangular_image_path)
             base_name = os.path.basename(equirectangular_image_path)
-            file_name, ext = os.path.splitext(base_name)
-            cubemap_file_name = f"{file_name}_cubemap.exr"
+            file_name, _ = os.path.splitext(base_name)
+            cubemap_file_name = f"{file_name}_cubemap{ext}"
             cubemap_image_path = os.path.join(dir_name, cubemap_file_name)
             cubemap_image.filepath_raw = cubemap_image_path
             cubemap_image.save()
@@ -215,13 +267,10 @@ def convert_equirectangular_to_cubemap(equirectangular_image_path, separate_alph
         import traceback
         traceback.print_exc()
 
+
 def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channel):
     print(f"Processing cubemap image: {cubemap_image_path}")
     try:
-        # Skip files that have "equirectangular" in the file name (case-insensitive)
-        if "equirectangular" in cubemap_image_path.lower():
-            print(f"Skipping {cubemap_image_path}")
-            return
 
         # Load the cubemap image
         try:
@@ -232,8 +281,23 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
 
         print("Image loaded successfully.")
 
-        cubemap_image.use_half_precision = True  # For HDRI support
-        cubemap_image.colorspace_settings.name = 'Non-Color'  # Set color space to Non-Color
+        # Determine the image color space and format based on file extension
+        ext = os.path.splitext(cubemap_image_path)[1].lower()
+        if ext in ['.exr', '.hdr']:
+            is_linear = True
+            output_format = 'OPEN_EXR'
+            cubemap_image.colorspace_settings.name = 'Non-Color'
+        elif ext in ['.png', '.jpg', '.jpeg', '.tiff', '.bmp']:
+            is_linear = False
+            output_format = ext.replace('.', '').upper()
+            if output_format == 'JPG':
+                output_format = 'JPEG'
+            elif output_format == 'TIF':
+                output_format = 'TIFF'
+            cubemap_image.colorspace_settings.name = 'Non-Color'  # Load without color management
+        else:
+            print(f"Unsupported input image format: {ext}")
+            return
 
         width, height = cubemap_image.size
         channels = len(cubemap_image.pixels) // (width * height)
@@ -244,13 +308,18 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
         cubemap_pixels = np.array(cubemap_image.pixels[:]).reshape((height, width, channels)).astype(np.float32)
         cubemap_pixels = cubemap_pixels[:, :, :4]  # Ensure RGBA
 
+        # Convert sRGB to linear if necessary
+        if not is_linear:
+            print("Converting from sRGB to linear color space.")
+            cubemap_pixels[:, :, :3] = srgb_to_linear(cubemap_pixels[:, :, :3])
+
         # Separate alpha channel if needed
         if channels == 4:
             alpha_cubemap = cubemap_pixels[:, :, 3]
             rgb_cubemap = cubemap_pixels[:, :, :3]
         else:
             alpha_cubemap = np.ones((height, width), dtype=np.float32)
-            rgb_cubemap = cubemap_pixels
+            rgb_cubemap = cubemap_pixels[:, :, :3]
 
         # Determine output dimensions
         equirect_width = width // 4 * 8  # Equirectangular width is typically 2:1 ratio
@@ -263,6 +332,23 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
         alpha_cubemap_expanded = np.stack([alpha_cubemap]*3, axis=-1)
         equirect_alpha = py360convert.c2e(alpha_cubemap_expanded, h=equirect_height, w=equirect_width, cube_format='dice')[:, :, 0]
 
+        # Convert linear to sRGB if saving in sRGB format
+        if not is_linear:
+            print("Converting from linear to sRGB color space for output.")
+            equirect_rgb = linear_to_srgb(equirect_rgb)
+
+        # Clamp values between 0 and 1 for 8-bit formats
+        if output_format in ['PNG', 'JPEG', 'TIFF', 'BMP']:
+            equirect_rgb = np.clip(equirect_rgb, 0.0, 1.0)
+
+        # Determine float_buffer and use_half_precision settings
+        if output_format == 'OPEN_EXR':
+            float_buffer = True
+            use_half_precision = True
+        else:
+            float_buffer = False
+            use_half_precision = False
+
         if separate_alpha_channel:
             # Create RGB equirectangular image with alpha channel set to 1
             equirect_rgb_image = bpy.data.images.new(
@@ -270,11 +356,11 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
                 width=equirect_width,
                 height=equirect_height,
                 alpha=True,
-                float_buffer=True
+                float_buffer=float_buffer
             )
-            equirect_rgb_image.use_half_precision = True
-            equirect_rgb_image.file_format = 'OPEN_EXR'
-            equirect_rgb_image.colorspace_settings.name = 'Non-Color'
+            equirect_rgb_image.use_half_precision = use_half_precision
+            equirect_rgb_image.file_format = output_format
+            equirect_rgb_image.colorspace_settings.name = 'sRGB' if not is_linear else 'Non-Color'
 
             # Combine RGB channels with alpha channel set to 1
             equirect_rgb_alpha = np.dstack((equirect_rgb, np.ones_like(equirect_alpha)))
@@ -285,8 +371,8 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
             # Save the RGB equirectangular image
             dir_name = os.path.dirname(cubemap_image_path)
             base_name = os.path.basename(cubemap_image_path)
-            file_name, ext = os.path.splitext(base_name)
-            equirect_rgb_file_name = f"{file_name}_equirectangular_rgb.exr"
+            file_name, _ = os.path.splitext(base_name)
+            equirect_rgb_file_name = f"{file_name}_equirectangular_rgb{ext}"
             equirect_rgb_image_path = os.path.join(dir_name, equirect_rgb_file_name)
             equirect_rgb_image.filepath_raw = equirect_rgb_image_path
             equirect_rgb_image.save()
@@ -299,11 +385,11 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
                 width=equirect_width,
                 height=equirect_height,
                 alpha=True,
-                float_buffer=True
+                float_buffer=float_buffer
             )
-            equirect_alpha_image.use_half_precision = True
-            equirect_alpha_image.file_format = 'OPEN_EXR'
-            equirect_alpha_image.colorspace_settings.name = 'Non-Color'
+            equirect_alpha_image.use_half_precision = use_half_precision
+            equirect_alpha_image.file_format = output_format
+            equirect_alpha_image.colorspace_settings.name = 'Non-Color'  # Alpha is linear
 
             # Replace RGB channels with alpha data, set alpha channel to 1
             equirect_alpha_rgb = np.dstack((equirect_alpha, equirect_alpha, equirect_alpha, np.ones_like(equirect_alpha)))
@@ -312,7 +398,7 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
             equirect_alpha_image.pixels = equirect_alpha_rgb.flatten().tolist()
 
             # Save the Alpha equirectangular image
-            equirect_alpha_file_name = f"{file_name}_equirectangular_alpha.exr"
+            equirect_alpha_file_name = f"{file_name}_equirectangular_alpha{ext}"
             equirect_alpha_image_path = os.path.join(dir_name, equirect_alpha_file_name)
             equirect_alpha_image.filepath_raw = equirect_alpha_image_path
             equirect_alpha_image.save()
@@ -329,11 +415,11 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
                 width=equirect_width,
                 height=equirect_height,
                 alpha=True,
-                float_buffer=True
+                float_buffer=float_buffer
             )
-            equirect_image.use_half_precision = True  # For HDRI support
-            equirect_image.file_format = 'OPEN_EXR'
-            equirect_image.colorspace_settings.name = 'Non-Color'
+            equirect_image.use_half_precision = use_half_precision
+            equirect_image.file_format = output_format
+            equirect_image.colorspace_settings.name = 'sRGB' if not is_linear else 'Non-Color'
 
             # Flatten and assign pixels
             equirect_image.pixels = equirect_rgba.flatten().tolist()
@@ -341,8 +427,8 @@ def convert_cubemap_to_equirectangular(cubemap_image_path, separate_alpha_channe
             # Save the image
             dir_name = os.path.dirname(cubemap_image_path)
             base_name = os.path.basename(cubemap_image_path)
-            file_name, ext = os.path.splitext(base_name)
-            equirect_file_name = f"{file_name}_equirectangular.exr"
+            file_name, _ = os.path.splitext(base_name)
+            equirect_file_name = f"{file_name}_equirectangular{ext}"
             equirect_image_path = os.path.join(dir_name, equirect_file_name)
             equirect_image.filepath_raw = equirect_image_path
             equirect_image.save()
