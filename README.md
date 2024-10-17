@@ -1,7 +1,7 @@
 # BlenderCubemapConverter
 Blender Addon for Converting cubemaps using py360converter library
 
-![alt text](image.png)
+![alt text](image-1.png)
 
 Huge credit to Py360Convert GitHub page for the libraries needed for this to work with python:
 https://github.com/sunset1995/py360convert
