@@ -10,6 +10,15 @@ https://github.com/sunset1995/py360convert
 You do not need to manually install py360convert anymore like the video below suggets. Just install and play.
 When enabling the addon for the first time it will automatically download scipy and numpy dependencies, this may take a minute or two.
 
+# Supported file formats
+.exr
+.hdr
+.png
+.jpg/.jpeg
+.tiff/.tif
+.bmp
+
+
 # Video tutorial:
 https://youtu.be/dpMQr59vSys
 
